@@ -1,0 +1,50 @@
+[
+  {
+    "num": "01",
+    "file": "01.png",
+    "title": "Home & Match History",
+    "caption": "Landing screen: quick career snapshot, recent matches with result + a mini momentum sparkline, and one big New match button."
+  },
+  {
+    "num": "02",
+    "file": "02.png",
+    "title": "New Match Setup",
+    "caption": "Minimal setup: names, surface, and the flexible format/scoring chips (best-of-3, pro set, match tiebreak, no-ad). The optional mood-marker toggle lives here."
+  },
+  {
+    "num": "03",
+    "file": "03.png",
+    "title": "Live Scouting — the fast screen",
+    "caption": "The speed-critical screen. Every point is 3 taps: who won (big zones) → how it ended → shot type (now required). Ace/double-fault auto-fill the winner, and an \"Other\" shot option keeps entry quick when a shot doesn't fit a category."
+  },
+  {
+    "num": "04",
+    "file": "04.png",
+    "title": "Momentum & Stats",
+    "caption": "The signature feature. The line rises on your runs, dips on the opponent's, with turning points marked and optional mood emojis on the same timeline. Key stats auto-calculated below."
+  },
+  {
+    "num": "05",
+    "file": "05.png",
+    "title": "Mental Reflection",
+    "caption": "Quick post-match check-in: mostly 1–10 sliders and tap-faces, one multiple-choice, and one optional text box. Designed to take about two minutes."
+  },
+  {
+    "num": "06",
+    "file": "06.png",
+    "title": "AI Match Report",
+    "caption": "The payoff. A scrollable report led by the standout Mind ↔ Match insight that connects mood to momentum — then match summary, mental/technical/tactical analysis, strengths, and areas to improve."
+  },
+  {
+    "num": "07",
+    "file": "07.png",
+    "title": "Welcome — Sign up & Log in",
+    "caption": "New. The first screen in the real app. Create an account or log in with email + password and pick your role — Player or Parent/Scout. Accounts are secured in the cloud (Supabase), so you can log in from any device."
+  },
+  {
+    "num": "08",
+    "file": "08.png",
+    "title": "Profiles & Linking",
+    "caption": "New. A player links the people who help them and shares an invite code so a parent/scout can connect and record matches from their own phone. Manage who can record vs view-only here."
+  }
+]
