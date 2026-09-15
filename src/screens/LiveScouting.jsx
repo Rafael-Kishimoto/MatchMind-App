@@ -5,12 +5,16 @@ import { useMatch } from '../store/MatchStore'
 import { computeState } from '../lib/engine'
 
 // Which question screens a point needs, based on the serve outcome + mode.
-function buildStepIds(serve, isDeep) {
+function buildStepIds(serve, isDeep, ret) {
   const ids = ['serve']
   if (serve === 'ace') { if (isDeep) ids.push('place') }
   else if (serve === '1st' || serve === '2nd') {
     // chronological, as it happens live: serve -> placement -> return -> rally outcome
-    if (isDeep) ids.push('place', 'ret')
+    if (isDeep) {
+      ids.push('place', 'ret')
+      // a missed return ends the point immediately (server wins) — nothing else to scout
+      if (ret === 'miss') { ids.push('confirm'); return ids }
+    }
     ids.push('winner', 'how', 'shot')
     if (isDeep) ids.push('dir', 'rally')
   }
@@ -87,13 +91,21 @@ export default function LiveScouting() {
     else { setWinner(null); setHow(null); setShot(null) }
   }
 
-  const steps = buildStepIds(serve, isDeep)
+  const steps = buildStepIds(serve, isDeep, ret)
   const safeStep = Math.min(step, steps.length - 1)
   const currentId = steps[safeStep]
 
   const pick = (id, v) => {
-    if (id === 'serve') { chooseServe(v); setStep(1) }
-    else { setters[id](v); setStep((s) => s + 1) }
+    if (id === 'serve') { chooseServe(v); setStep(1); return }
+    if (id === 'ret') {
+      setRet(v)
+      // return miss = returner's error, server wins the point; skip the rally questions
+      if (v === 'miss') { setWinner(state.server); setHow('Forced err'); setShot(null) }
+      else { setWinner(null); setHow(null); setShot(null) }
+      setStep((s) => s + 1)
+      return
+    }
+    setters[id](v); setStep((s) => s + 1)
   }
   const back = () => setStep((s) => Math.max(0, s - 1))
   const undoLast = () => { undoPoint(); resetPoint() }
@@ -122,17 +134,20 @@ export default function LiveScouting() {
 
   const recapRows = () => {
     const rows = [['Serve', LABELS.serve[serve] + (place ? ` · ${LABELS.place[place]}` : '')]]
-    if (serve === 'ace') rows.push(['Result', `Ace — point to ${serverName}`])
-    else if (serve === 'df') rows.push(['Result', `Point to ${winner === 'you' ? youName : oppName}`])
-    else {
+    if (serve === 'ace') { rows.push(['Result', `Ace — point to ${serverName}`]); return rows }
+    if (serve === 'df') { rows.push(['Result', `Point to ${winner === 'you' ? youName : oppName} (double fault)`]); return rows }
+    if (ret === 'miss') {
+      rows.push(['Return', 'Miss — return error'])
       rows.push(['Point to', winner === 'you' ? youName : oppName])
-      rows.push(['How', LABELS.how[how]])
-      rows.push(['Shot', shot])
-      if (isDeep) {
-        if (dir) rows.push(['Direction', LABELS.dir[dir]])
-        if (rally) rows.push(['Rally', LABELS.rally[rally]])
-        if (ret) rows.push(['Return', LABELS.ret[ret]])
-      }
+      return rows
+    }
+    rows.push(['Point to', winner === 'you' ? youName : oppName])
+    rows.push(['How', LABELS.how[how]])
+    rows.push(['Shot', shot])
+    if (isDeep) {
+      if (dir) rows.push(['Direction', LABELS.dir[dir]])
+      if (rally) rows.push(['Rally', LABELS.rally[rally]])
+      if (ret) rows.push(['Return', LABELS.ret[ret]])
     }
     return rows
   }

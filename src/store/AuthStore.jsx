@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [recovery, setRecovery] = useState(false) // true after a password-reset link is opened
 
   // track the current session
   useEffect(() => {
@@ -15,7 +16,10 @@ export function AuthProvider({ children }) {
       setSession(data.session)
       setLoading(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s)
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true)
+    })
     return () => sub.subscription.unsubscribe()
   }, [])
 
@@ -50,13 +54,26 @@ export function AuthProvider({ children }) {
   }
   const signOut = async () => { await supabase.auth.signOut() }
 
+  // send a reset-password email; the link brings the user back to this app
+  const resetPassword = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    return error
+  }
+  // set a new password once the user has arrived via the recovery link
+  const updatePassword = async (password) => {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (!error) setRecovery(false)
+    return error
+  }
+
   const value = {
     configured: isSupabaseConfigured,
     session,
     user: session?.user || null,
     profile,
     loading,
-    signUp, signIn, signOut,
+    recovery,
+    signUp, signIn, signOut, resetPassword, updatePassword,
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
