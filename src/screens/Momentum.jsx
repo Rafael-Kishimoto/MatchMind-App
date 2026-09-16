@@ -1,13 +1,18 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import { useMatch } from '../store/MatchStore'
+import { useAuth } from '../store/AuthStore'
 import { computeState } from '../lib/engine'
 import { buildMomentum } from '../lib/momentum'
 import MomentumChart from '../components/MomentumChart'
 
 export default function Momentum() {
   const navigate = useNavigate()
-  const { activeMatch } = useMatch()
+  const { activeMatch, finishToHistory } = useMatch()
+  const { user } = useAuth()
+  const [showWarn, setShowWarn] = useState(false)
+  const [dontShow, setDontShow] = useState(false)
 
   if (!activeMatch) {
     return (
@@ -31,6 +36,19 @@ export default function Momentum() {
   const firstServePct = s.servePts.you ? Math.round((s.firstIn.you / s.servePts.you) * 100) : null
   const totalPts = s.pointsWon.you + s.pointsWon.opp
   const pointsWonPct = totalPts ? Math.round((s.pointsWon.you / totalPts) * 100) : null
+
+  // A scout recording for someone else saves the match; the player reflects later.
+  const scoutRecording = !!cfg.recordOwner && cfg.recordOwner !== user?.id
+  const hasReflection = !!activeMatch.reflection
+  const saveForPlayer = async () => { await finishToHistory(); navigate('/') }
+  const startScoutReflection = () => {
+    if (localStorage.getItem('matchmind:skipReflectWarn')) { navigate('/reflect'); return }
+    setShowWarn(true)
+  }
+  const confirmScoutReflection = () => {
+    if (dontShow) { try { localStorage.setItem('matchmind:skipReflectWarn', '1') } catch { /* ignore */ } }
+    setShowWarn(false); navigate('/reflect')
+  }
 
   return (
     <div className="app">
@@ -72,9 +90,39 @@ export default function Momentum() {
         )}
 
         <div className="pad-lg">
-          <button className="btn btn-accent" onClick={() => navigate('/reflect')}>Continue to reflection&nbsp;&nbsp;▸</button>
+          {scoutRecording ? (
+            <>
+              <button className="btn btn-accent" onClick={saveForPlayer}>Save match&nbsp;&nbsp;▸</button>
+              <div className="center muted" style={{ fontSize: 11.5, marginTop: 10, lineHeight: 1.5 }}>
+                {youName} will add their mental reflection when they open the app.
+              </div>
+              <button className="wiz-undo" style={{ display: 'block', margin: '14px auto 0' }} onClick={startScoutReflection}>Or fill the reflection yourself</button>
+            </>
+          ) : hasReflection ? (
+            <button className="btn btn-accent" onClick={() => navigate('/report')}>View AI report&nbsp;&nbsp;▸</button>
+          ) : (
+            <button className="btn btn-accent" onClick={() => navigate('/reflect')}>Continue to reflection&nbsp;&nbsp;▸</button>
+          )}
         </div>
       </div>
+
+      {showWarn && (
+        <div className="modal-overlay" onClick={() => setShowWarn(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">🧠</div>
+            <div className="modal-title">Reflections are best done by the player</div>
+            <div className="modal-body">The mental reflection works best when the player answers honestly about their own head. Only fill it in yourself if they can't right now (e.g. a dead phone).</div>
+            <label className="modal-check">
+              <input type="checkbox" checked={dontShow} onChange={(e) => setDontShow(e.target.checked)} />
+              Don't show this again
+            </label>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setShowWarn(false)}>Cancel</button>
+              <button className="btn btn-accent" onClick={confirmScoutReflection}>Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

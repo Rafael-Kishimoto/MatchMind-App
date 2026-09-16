@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import TabBar from '../components/TabBar'
 import { useAuth } from '../store/AuthStore'
+import { useMatch } from '../store/MatchStore'
 import { getMyInviteCode, redeemInvite, getMyLinks } from '../lib/links'
 import { profile as sampleProfile, linkedPeople as sampleLinked, inviteCode as sampleCode } from '../data/sample'
 
 export default function Profiles() {
   const { profile, user, configured, signOut } = useAuth()
+  const { managedPlayers, addManagedPlayer, removeManagedPlayer } = useMatch()
   const cloud = configured && user
 
   const name = profile?.name || sampleProfile.name
@@ -19,6 +21,9 @@ export default function Profiles() {
   const [redeem, setRedeem] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [newManaged, setNewManaged] = useState('')
+
+  const addManaged = () => { const n = newManaged.trim(); if (n) { addManagedPlayer(n); setNewManaged('') } }
 
   const refreshLinks = () => { getMyLinks().then(setLinks).catch(() => {}) }
 
@@ -98,6 +103,26 @@ export default function Profiles() {
                     <span style={{ fontSize: 15, color: 'var(--pos)' }}>✓</span>
                   </div>
                 ))}
+
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, letterSpacing: '.5px', margin: '18px 2px 6px' }}>PLAYERS YOU MANAGE</div>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5, margin: '0 2px 10px' }}>
+                For young players with no phone of their own — you record and do the reflection for them.
+              </div>
+              {managedPlayers.map((p) => (
+                <div className="card person" key={p.id}>
+                  <div className="avatar" style={{ background: 'linear-gradient(135deg,#2b4938,#16201a)', cursor: 'default' }}>👶</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="nm">{p.name}</div>
+                    <div className="rl">Managed by you</div>
+                  </div>
+                  <button className="wiz-undo" onClick={() => removeManagedPlayer(p.id)}>Remove</button>
+                </div>
+              ))}
+              <div className="row" style={{ gap: 8, marginTop: managedPlayers.length ? 4 : 0 }}>
+                <input className="input" placeholder="Add a player's name…" value={newManaged}
+                  onChange={(e) => setNewManaged(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addManaged()} style={{ flex: 1 }} />
+                <button className="mini-btn" style={{ padding: '12px 16px' }} onClick={addManaged}>Add</button>
+              </div>
             </>
           ) : (
             <>

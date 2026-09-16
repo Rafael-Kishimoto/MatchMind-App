@@ -9,20 +9,25 @@ import { profile as sampleProfile, careerStats, matches as sampleMatches } from 
 export default function Home() {
   const navigate = useNavigate()
   const { savedMatches, viewMatch } = useMatch()
-  const { profile: authProfile } = useAuth()
+  const { profile: authProfile, user } = useAuth()
   const displayName = authProfile?.name || sampleProfile.name
   const initial = (displayName[0] || 'P').toUpperCase()
 
-  const realCards = savedMatches.map(matchToCard)
+  // A match is "pending" if it's yours and still has no reflection.
+  const realCards = savedMatches.map((mm) => {
+    const c = matchToCard(mm)
+    return { ...c, pending: !c.hasReflection && c.owner === user?.id }
+  })
   const cards = [...realCards, ...sampleMatches]
+  const pendingCount = realCards.filter((c) => c.pending).length
 
-  // Real career stats once you've saved matches; sample placeholders before that.
   const career = savedMatches.length ? computeCareer(savedMatches) : careerStats
   const fmt = (v, suffix = '') => (v == null ? '—' : `${v}${suffix}`)
 
   const open = (card) => {
-    if (card.real) { viewMatch(card.id); navigate('/momentum') }
-    else navigate('/report')
+    if (!card.real) { navigate('/report'); return }
+    viewMatch(card.id)
+    navigate(card.pending ? '/reflect' : '/momentum')
   }
 
   return (
@@ -38,6 +43,12 @@ export default function Home() {
           </div>
         </div>
 
+        {pendingCount > 0 && (
+          <button className="reflect-banner" onClick={() => open(realCards.find((c) => c.pending))}>
+            ⚡ {pendingCount} match{pendingCount > 1 ? 'es' : ''} need{pendingCount > 1 ? '' : 's'} your reflection — tap to finish
+          </button>
+        )}
+
         <div className="summary">
           <div className="stat-tile"><div className="num">{career.matches}</div><div className="lbl">Matches</div></div>
           <div className="stat-tile"><div className="num acc">{fmt(career.winRate, '%')}</div><div className="lbl">Win rate</div></div>
@@ -50,7 +61,7 @@ export default function Home() {
         </div>
 
         {cards.slice(0, 4).map((m) => (
-          <MatchCard key={m.id} m={m} onClick={() => open(m)} />
+          <MatchCard key={m.id} m={m} pending={m.pending} onClick={() => open(m)} />
         ))}
 
         <div className="fab-wrap">

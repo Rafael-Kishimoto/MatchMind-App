@@ -11,6 +11,13 @@ function load() {
   catch { return { active: null, saved: [] } }
 }
 
+// client-only fields we don't write into the cloud jsonb
+const strip = (m) => { const { _rowId, _owner, ...rest } = m; return rest }
+
+// managed players: named players a parent looks after who have no account of their own
+const MKEY = 'matchmind:managed'
+function loadManaged() { try { return JSON.parse(localStorage.getItem(MKEY)) || [] } catch { return [] } }
+
 export function MatchProvider({ children }) {
   const { user, configured } = useAuth()
   const [data, setData] = useState(load)
@@ -19,6 +26,16 @@ export function MatchProvider({ children }) {
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(data)) } catch { /* ignore quota */ }
   }, [data])
+
+  // players this parent/scout manages (no account of their own)
+  const [managed, setManaged] = useState(loadManaged)
+  useEffect(() => { try { localStorage.setItem(MKEY, JSON.stringify(managed)) } catch { /* ignore */ } }, [managed])
+  const addManagedPlayer = (name) => {
+    const p = { id: 'mp_' + Date.now().toString(36), name: (name || '').trim() || 'Player' }
+    setManaged((m) => [...m, p])
+    return p
+  }
+  const removeManagedPlayer = (id) => setManaged((m) => m.filter((p) => p.id !== id))
 
   // when signed in to the cloud, saved matches come from Supabase
   useEffect(() => {
@@ -29,10 +46,12 @@ export function MatchProvider({ children }) {
     // matches of players I'm linked to as a scout.
     supabase
       .from('matches')
-      .select('data, created_at')
+      .select('id, owner, data, created_at')
       .order('created_at', { ascending: false })
       .then(({ data: rows, error }) => {
-        if (!error && !cancelled && rows) setData((d) => ({ ...d, saved: rows.map((r) => r.data) }))
+        if (!error && !cancelled && rows) {
+          setData((d) => ({ ...d, saved: rows.map((r) => ({ ...r.data, _rowId: r.id, _owner: r.owner })) }))
+        }
       })
     return () => { cancelled = true }
   }, [configured, user])
@@ -51,14 +70,29 @@ export function MatchProvider({ children }) {
   const addMood = (mood) =>
     setData((d) => (d.active ? { ...d, active: { ...d.active, moods: [...(d.active.moods || []), mood] } } : d))
 
+  // Save the active match to history. Inserts a new match, OR updates one that
+  // already exists in the cloud (e.g. a player adding their reflection to a
+  // match a scout recorded). If a scout recorded it, it's owned by the player.
   const finishToHistory = async () => {
     const active = data.active
     if (!active) return
-    const done = { ...active, status: 'done', finishedAt: Date.now(), recordedBy: user?.id }
+    const owner = active.config.recordOwner || user?.id || null
+    const done = {
+      ...active, status: 'done',
+      finishedAt: active.finishedAt || Date.now(),
+      recordedBy: active.recordedBy || user?.id,
+      _owner: owner,
+    }
     if (configured && user) {
-      // If a scout recorded this for a linked player, it's owned by that player.
-      const owner = active.config.recordOwner || user.id
-      try { await supabase.from('matches').insert({ owner, data: done }) } catch { /* keep local copy */ }
+      try {
+        if (active._rowId) {
+          await supabase.from('matches').update({ data: strip(done) }).eq('id', active._rowId)
+          done._rowId = active._rowId
+        } else {
+          const { data: ins } = await supabase.from('matches').insert({ owner, data: strip(done) }).select('id').single()
+          if (ins) done._rowId = ins.id
+        }
+      } catch { /* keep local copy */ }
     }
     setData((d) => ({
       ...d,
@@ -76,7 +110,9 @@ export function MatchProvider({ children }) {
   const value = {
     activeMatch: data.active,
     savedMatches: data.saved,
+    managedPlayers: managed,
     startMatch, logPoint, undoPoint, saveReflection, addMood, finishToHistory, viewMatch,
+    addManagedPlayer, removeManagedPlayer,
   }
   return <MatchContext.Provider value={value}>{children}</MatchContext.Provider>
 }

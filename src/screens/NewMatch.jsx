@@ -18,12 +18,15 @@ function ChipGroup({ options, value, onChange }) {
 
 export default function NewMatch() {
   const navigate = useNavigate()
-  const { startMatch } = useMatch()
+  const { startMatch, managedPlayers, addManagedPlayer } = useMatch()
   const { profile, user } = useAuth()
   const myName = profile?.name || sampleProfile.name
+  const isScout = profile?.role === 'scout'
 
   const [recordablePlayers, setRecordablePlayers] = useState([])
   const [recordFor, setRecordFor] = useState('self')
+  const [addingManaged, setAddingManaged] = useState(false)
+  const [newManaged, setNewManaged] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -34,9 +37,18 @@ export default function NewMatch() {
       .catch(() => {})
   }, [user])
 
-  const selectedPlayer = recordablePlayers.find((p) => p.id === recordFor)
-  const playerName = recordFor === 'self' ? myName : (selectedPlayer?.name || 'Player')
-  const recordOwner = recordFor === 'self' ? undefined : recordFor
+  const linkedSel = recordablePlayers.find((p) => p.id === recordFor)
+  const managedSel = managedPlayers.find((p) => p.id === recordFor)
+  const playerName = recordFor === 'self' ? myName : (managedSel?.name || linkedSel?.name || 'Player')
+  const recordOwner = linkedSel ? linkedSel.id : undefined       // linked player owns the match
+  const managedFor = managedSel ? { id: managedSel.id, name: managedSel.name } : undefined // else the parent owns it
+
+  const confirmAddManaged = () => {
+    const nm = newManaged.trim()
+    if (!nm) return
+    const p = addManagedPlayer(nm)
+    setRecordFor(p.id); setNewManaged(''); setAddingManaged(false)
+  }
 
   const [opponent, setOpponent] = useState('')
   const [scoutMode, setScoutMode] = useState('simple')
@@ -52,6 +64,7 @@ export default function NewMatch() {
       opponent: opponent.trim() || 'Opponent',
       playerName,
       recordOwner,
+      managedFor,
       scoutMode,
       surface,
       format,
@@ -68,7 +81,7 @@ export default function NewMatch() {
       <div className="screen-scroll">
         <TopBar title="New match" to="/" />
         <div className="pad-lg" style={{ paddingTop: 4 }}>
-          {recordablePlayers.length > 0 && (
+          {(recordablePlayers.length > 0 || managedPlayers.length > 0 || isScout) && (
             <div className="field">
               <label>RECORDING FOR</label>
               <div className="chips">
@@ -76,7 +89,25 @@ export default function NewMatch() {
                 {recordablePlayers.map((p) => (
                   <button key={p.id} className={`chip${recordFor === p.id ? ' on' : ''}`} onClick={() => setRecordFor(p.id)}>{p.name}</button>
                 ))}
+                {managedPlayers.map((p) => (
+                  <button key={p.id} className={`chip${recordFor === p.id ? ' on' : ''}`} onClick={() => setRecordFor(p.id)}>👶 {p.name}</button>
+                ))}
+                {isScout && !addingManaged && (
+                  <button className="chip" onClick={() => setAddingManaged(true)}>＋ Add player</button>
+                )}
               </div>
+              {addingManaged && (
+                <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                  <input className="input" placeholder="Player's name (no account needed)" value={newManaged}
+                    onChange={(e) => setNewManaged(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmAddManaged()} style={{ flex: 1 }} />
+                  <button className="mini-btn" style={{ padding: '12px 14px' }} onClick={confirmAddManaged}>Add</button>
+                </div>
+              )}
+              {managedSel && (
+                <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.45 }}>
+                  You'll scout and do the reflection for {managedSel.name} — they have no account of their own.
+                </div>
+              )}
             </div>
           )}
 

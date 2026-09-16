@@ -34,6 +34,9 @@ export function matchToCard(match) {
     when: 'Recent',
     spark,
     real: true,
+    hasReflection: !!match.reflection,
+    owner: match._owner,
+    managedName: match.config?.managedFor?.name || null,
   }
 }
 
