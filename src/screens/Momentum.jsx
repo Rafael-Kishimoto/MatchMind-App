@@ -5,6 +5,7 @@ import { useMatch } from '../store/MatchStore'
 import { useAuth } from '../store/AuthStore'
 import { computeState } from '../lib/engine'
 import { buildMomentum } from '../lib/momentum'
+import { buildShareText, shareText } from '../lib/share'
 import MomentumChart from '../components/MomentumChart'
 
 export default function Momentum() {
@@ -13,6 +14,7 @@ export default function Momentum() {
   const { user } = useAuth()
   const [showWarn, setShowWarn] = useState(false)
   const [dontShow, setDontShow] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
 
   if (!activeMatch) {
     return (
@@ -41,6 +43,12 @@ export default function Momentum() {
   const scoutRecording = !!cfg.recordOwner && cfg.recordOwner !== user?.id
   const hasReflection = !!activeMatch.reflection
   const saveForPlayer = async () => { await finishToHistory(); navigate('/') }
+  const handleShare = async () => {
+    const res = await shareText(buildShareText(state, cfg, mo))
+    if (res === 'copied') setShareMsg('Copied! Paste it to your parents 📋')
+    else if (res === 'failed') setShareMsg('Sharing not supported on this device.')
+    if (res === 'copied' || res === 'failed') setTimeout(() => setShareMsg(''), 2800)
+  }
   const startScoutReflection = () => {
     if (localStorage.getItem('matchmind:skipReflectWarn')) { navigate('/reflect'); return }
     setShowWarn(true)
@@ -90,6 +98,8 @@ export default function Momentum() {
         )}
 
         <div className="pad-lg">
+          <button className="btn btn-ghost" style={{ marginBottom: 10 }} onClick={handleShare}>📤 Share stats</button>
+          {shareMsg && <div className="center" style={{ fontSize: 11.5, color: 'var(--accent)', marginBottom: 12 }}>{shareMsg}</div>}
           {scoutRecording ? (
             <>
               <button className="btn btn-accent" onClick={saveForPlayer}>Save match&nbsp;&nbsp;▸</button>
